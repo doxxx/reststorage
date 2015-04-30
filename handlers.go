@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/garyburd/redigo/redis"
 )
 
 func StorageGet(w http.ResponseWriter, r *http.Request) {
@@ -16,17 +17,20 @@ func StorageGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 
-	client := NewClient()
-	value, err := client.Get("settings:" + key).Result()
+	conn := pool.Get()
+	defer conn.Close()
+
+	value, err := redis.String(conn.Do("GET", storageKey(key)))
+	if err == redis.ErrNil {
+		w.WriteHeader(http.StatusNotFound)
+		return;
+	}
 	if err != nil {
-		writeError(w, err)
-		return
+		panic(err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintln(w, value)
-
-	client.Close()
 }
 
 func StoragePut(w http.ResponseWriter, r *http.Request) {
@@ -37,21 +41,20 @@ func StoragePut(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
-		writeError(w, err)
-		return
+		panic(err)
 	}
 	if err := r.Body.Close(); err != nil {
-		writeError(w, err)
-		return
+		panic(err)
 	}
 
-	value := string(body)
+	value := string(body) // TODO: encoding?
 
-	client := NewClient()
-	set, err := client.SetNX("settings:"+key, value).Result()
+	conn := pool.Get()
+	defer conn.Close()
+
+	set, err := redis.Bool(conn.Do("SETNX", storageKey(key), value))
 	if err != nil {
-		writeError(w, err)
-		return
+		panic(err)
 	}
 	if !set {
 		w.WriteHeader(http.StatusConflict)
@@ -77,13 +80,18 @@ func StoragePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value := string(body)
+	value := string(body) // TODO: encoding?
 
-	client := NewClient()
-	err = client.Set("settings:"+key, value).Err()
-	if err != nil {
-		writeError(w, err)
+	conn := pool.Get()
+	defer conn.Close()
+
+	_, err = redis.String(conn.Do("SET", storageKey(key), value, "XX"))
+	if err == redis.ErrNil {
+		w.WriteHeader(http.StatusNotFound)
 		return
+	}
+	if err != nil {
+		panic(err)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -95,14 +103,17 @@ func StorageDelete(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	key := vars["key"]
 
-	client := NewClient()
-	err := client.Del(key).Err()
+	conn := pool.Get()
+	defer conn.Close()
+	count, err := redis.Int(conn.Do("Del", key))
 	if err != nil {
-		writeError(w, err)
-		return
+		panic(err)
+	}
+	if count != 1 {
+		w.WriteHeader(http.StatusNotFound)
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 func StorageOptions(w http.ResponseWriter, r *http.Request) {
@@ -110,10 +121,13 @@ func StorageOptions(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Access-Control-Max-Age", "60")
-
 }
 
 func writeError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	fmt.Fprintln(w, err)
+}
+
+func storageKey(key string) string {
+	return "storage:" + key
 }
