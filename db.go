@@ -9,8 +9,8 @@ var (
 	pool *redis.Pool
 )
 
-func InitDB() {
-	pool = newPool("localhost:6379", "")
+func InitDB(server string) {
+	pool = newPool(server, "")
 }
 
 func newPool(server string, password string) *redis.Pool {
