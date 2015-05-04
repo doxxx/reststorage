@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	"github.com/garyburd/redigo/redis"
+	"github.com/gorilla/mux"
 )
 
 func StorageGet(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func StorageGet(w http.ResponseWriter, r *http.Request) {
 	value, err := redis.String(conn.Do("GET", storageKey(key)))
 	if err == redis.ErrNil {
 		w.WriteHeader(http.StatusNotFound)
-		return;
+		return
 	}
 	if err != nil {
 		panic(err)

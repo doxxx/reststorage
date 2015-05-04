@@ -1,13 +1,12 @@
 package main
 
 import (
-	"time"
 	"github.com/garyburd/redigo/redis"
+	"time"
 )
 
 var (
 	pool *redis.Pool
-
 )
 
 func InitDB() {
@@ -16,9 +15,9 @@ func InitDB() {
 
 func newPool(server string, password string) *redis.Pool {
 	return &redis.Pool{
-		MaxIdle: 3,
+		MaxIdle:     3,
 		IdleTimeout: 240 * time.Second,
-		Dial: func () (redis.Conn, error) {
+		Dial: func() (redis.Conn, error) {
 			c, err := redis.Dial("tcp", server)
 			if err != nil {
 				return nil, err
