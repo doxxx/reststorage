@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"code.google.com/p/gcfg"
+	"flag"
 )
 
 type HostPortPair struct {
@@ -44,6 +45,14 @@ func main() {
 			return
 		}
 	}
+
+	flag.StringVar(&cfg.Db.Host, "dbhost", cfg.Db.Host, "database host")
+	flag.IntVar(&cfg.Db.Port, "dbport", cfg.Db.Port, "database port")
+
+	flag.StringVar(&cfg.Listen.Host, "listenhost", cfg.Listen.Host, "listen host")
+	flag.IntVar(&cfg.Listen.Port, "listenport", cfg.Listen.Port, "listen port")
+
+	flag.Parse()
 
 	InitDB(fmtHostPort(cfg.Db))
 
