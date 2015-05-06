@@ -1,5 +1,5 @@
 #!/bin/sh
-cd `dirname $0`
-sudo docker build -t localredis .
-sudo docker rm -f localredis
-sudo docker run -dP --name localredis -v $PWD:/data localredis
+if [ -n "$DATADIR" ]; then
+  DATADIR=`dirname $0`
+fi
+docker run -d --name rest-storage-db -v $DATADIR:/data redis redis-server --appendonly yes
